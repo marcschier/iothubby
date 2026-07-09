@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net8.0;net9.0;net10.0</TargetFrameworks>
+    <PackageId>IoTHubby.Edge</PackageId>
+    <RootNamespace>IoTHubby.Edge</RootNamespace>
+    <AssemblyName>IoTHubby.Edge</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>IoT Edge extensions for IoTHubby: bootstrap a module client from the IoT Edge runtime environment, the Edge Workload API (SAS signing and CA trust bundle over a Unix-domain socket / named pipe), and module-to-module input/output routing. On netstandard2.0/2.1 the Workload API degrades gracefully; net8.0+ is fully featured.</Description>
+    <PackageTags>azure;iot-edge;edge;module;workload;mqtt;iot;aot;trimmable</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IoTHubby\IoTHubby.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="IoTHubby.Edge.Tests" />
+    <InternalsVisibleTo Include="IoTHubby.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

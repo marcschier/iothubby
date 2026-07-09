@@ -1,0 +1,1 @@
+$iothub/methods/POST/reboot/?$rid=42

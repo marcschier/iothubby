@@ -1,0 +1,1 @@
+$iothub/twin/PATCH/properties/desired/?$version=12

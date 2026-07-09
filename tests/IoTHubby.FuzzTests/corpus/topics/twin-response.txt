@@ -1,0 +1,1 @@
+$iothub/twin/res/200/?$rid=abc&$version=7

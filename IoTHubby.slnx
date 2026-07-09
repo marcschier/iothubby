@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/solution/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="version.json" />
+    <File Path="global.json" />
+    <File Path="nuget.config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/IoTHubby/IoTHubby.csproj" />
+    <Project Path="src/IoTHubby.Edge/IoTHubby.Edge.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IoTHubby.Tests/IoTHubby.Tests.csproj" />
+    <Project Path="tests/IoTHubby.IntegrationTests/IoTHubby.IntegrationTests.csproj" />
+    <Project Path="tests/IoTHubby.Edge.Tests/IoTHubby.Edge.Tests.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/IoTHubby.Samples/IoTHubby.Samples.csproj" />
+  </Folder>
+</Solution>

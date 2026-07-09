@@ -1,0 +1,1 @@
+$dps/registrations/res/200/?$rid=2

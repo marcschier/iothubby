@@ -1,0 +1,1 @@
+HostName=my-hub.azure-devices.net;DeviceId=device1;X509=true

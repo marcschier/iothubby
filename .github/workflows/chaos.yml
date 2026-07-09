@@ -1,0 +1,98 @@
+name: chaos
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Soak duration (hh:mm:ss or seconds)'
+        required: false
+        default: '01:00:00'
+      clients:
+        description: 'Number of device workers'
+        required: false
+        default: '4'
+      seed:
+        description: 'RNG seed (blank = random; pass the logged seed to reproduce a failure)'
+        required: false
+        default: ''
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'src/IoTHubby/**'
+      - 'tests/IoTHubby.ChaosTests/**'
+      - '.github/workflows/chaos.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build chaos harness
+        run: dotnet build tests/IoTHubby.ChaosTests/IoTHubby.ChaosTests.csproj -c Release
+
+      - name: Run chaos soak
+        env:
+          DURATION: ${{ github.event.inputs.duration || '01:00:00' }}
+          CLIENTS: ${{ github.event.inputs.clients || '4' }}
+          SEED: ${{ github.event.inputs.seed || '' }}
+        run: |
+          set -o pipefail
+          mkdir -p chaos-report
+          dotnet run --project tests/IoTHubby.ChaosTests -c Release --no-build -- \
+            --duration "$DURATION" --clients "$CLIENTS" ${SEED:+--seed "$SEED"} \
+            --report ./chaos-report 2>&1 | tee chaos-report/console.log
+
+      - name: Upload chaos artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-soak-${{ github.run_id }}
+          path: chaos-report/**
+
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build chaos harness
+        run: dotnet build tests/IoTHubby.ChaosTests/IoTHubby.ChaosTests.csproj -c Release
+
+      - name: Run chaos smoke
+        run: |
+          set -o pipefail
+          mkdir -p chaos-report
+          dotnet run --project tests/IoTHubby.ChaosTests -c Release --no-build -- \
+            --duration 180 --clients 3 --report ./chaos-report 2>&1 | tee chaos-report/console.log
+
+      - name: Upload chaos smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-smoke-${{ github.run_id }}
+          path: chaos-report/**

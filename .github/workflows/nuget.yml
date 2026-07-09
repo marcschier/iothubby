@@ -1,0 +1,90 @@
+name: nuget
+
+# Manually promotes the latest published IoTHubby packages from the repository's GitHub Packages
+# feed to nuget.org using NuGet trusted publishing (OIDC short-lived token — no stored API key). Run
+# this from the Actions tab once a version has been published to GitHub Packages by the tag-triggered
+# CI publish job. Every package in the feed is promoted; leave "version" blank to promote each
+# package's latest published version.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to promote (blank = latest published in the GitHub Packages feed)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Promote to nuget.org
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write   # Required for OIDC (NuGet trusted publishing)
+      contents: read
+      packages: read    # Read the packages from the GitHub Packages feed
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download packages from GitHub Packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          index="https://nuget.pkg.github.com/${OWNER}/index.json"
+          auth="Authorization: Bearer ${GH_TOKEN}"
+
+          svc() {
+            curl -fsSL -H "$auth" "$index" \
+              | jq -r --arg t "$1" '[.resources[] | select(."@type"|startswith($t)) | ."@id"] | first'
+          }
+          base=$(svc "PackageBaseAddress/3.0.0"); base=${base%/}
+          search=$(svc "SearchQueryService"); search=${search%/}
+
+          # Discover every package id in the feed; fall back to the known ids if search is unavailable.
+          ids=$(curl -fsSL -H "$auth" "${search}?q=&take=1000&prerelease=true" \
+            | jq -r '.data[].id' 2>/dev/null || true)
+          if [ -z "${ids}" ]; then
+            echo "Search returned nothing; falling back to the known package list." >&2
+            ids="IoTHubby IoTHubby.Edge"
+          fi
+          echo "Packages to promote:" $ids
+
+          mkdir -p ./download
+          for id in ${ids}; do
+            lower=$(echo "$id" | tr '[:upper:]' '[:lower:]')
+            if [ -n "${VERSION}" ]; then
+              ver="${VERSION}"
+            else
+              # The GitHub Packages flat-container index is not ordered by SemVer; sort numerically
+              # and drop prereleases to pick the true latest stable version.
+              ver=$(curl -fsSL -H "$auth" "$base/$lower/index.json" \
+                | jq -r '[.versions[] | select(test("-")|not)] | sort_by(split(".")|map(tonumber)) | last')
+            fi
+            echo "Promoting $id $ver"
+            curl -fsSL -H "$auth" "$base/$lower/$ver/$lower.$ver.nupkg" \
+              -o "./download/$lower.$ver.nupkg"
+          done
+          ls -l ./download
+
+      - name: NuGet login (OIDC trusted publishing)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to nuget.org
+        run: >
+          dotnet nuget push "./download/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

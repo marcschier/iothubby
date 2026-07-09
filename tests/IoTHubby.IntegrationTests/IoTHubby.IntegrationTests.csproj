@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <!-- Integration tests exercise the real client against an in-process broker; relax test-only rules. -->
+    <NoWarn>$(NoWarn);CA1707;CA2007;CA1859;CA1812</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Mqtt.Client" />
+    <PackageReference Include="Mqtt.Client.Testing" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(AotTest)' != 'true'">
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\IoTHubby\IoTHubby.csproj" />
+    <ProjectReference Include="..\..\src\IoTHubby.Edge\IoTHubby.Edge.csproj" />
+  </ItemGroup>
+
+</Project>

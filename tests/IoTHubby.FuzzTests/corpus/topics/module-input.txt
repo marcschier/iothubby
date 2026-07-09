@@ -1,0 +1,1 @@
+devices/d/modules/m/inputs/input1/$.ct=application%2Fjson&k=v

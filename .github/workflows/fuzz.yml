@@ -1,0 +1,50 @@
+name: fuzz
+
+on:
+  workflow_dispatch:
+    inputs:
+      harness:
+        description: 'Harness: topics | codec | propertybag | connstring | twinjson | dpsresponse | all'
+        required: false
+        default: 'all'
+      max_total_time:
+        description: 'libFuzzer -max_total_time (seconds per harness)'
+        required: false
+        default: '300'
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run fuzz harness(es)
+        working-directory: tests/IoTHubby.FuzzTests
+        run: |
+          chmod +x scripts/run-fuzz.sh
+          if [ "${{ inputs.harness }}" = "all" ]; then
+            for h in topics codec propertybag connstring twinjson dpsresponse; do
+              echo "=== $h ==="
+              ./scripts/run-fuzz.sh "$h" "${{ inputs.max_total_time }}" || true
+            done
+          else
+            ./scripts/run-fuzz.sh "${{ inputs.harness }}" "${{ inputs.max_total_time }}"
+          fi
+
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-findings-${{ github.run_id }}
+          path: tests/IoTHubby.FuzzTests/findings/**

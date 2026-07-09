@@ -68,4 +68,36 @@ public sealed class ProvisioningUnitTests
         await Assert.That(SasTokenGenerator.ProvisioningResourceUri("scope", "reg"))
             .IsEqualTo("scope/registrations/reg");
     }
+
+    [Test]
+    public async Task ProvisioningClient_builds_with_x509_certificate()
+    {
+        using var rsa = System.Security.Cryptography.RSA.Create(2048);
+        var request = new System.Security.Cryptography.X509Certificates.CertificateRequest(
+            "CN=dps-test",
+            rsa,
+            System.Security.Cryptography.HashAlgorithmName.SHA256,
+            System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        using var cert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+
+        await using var client = ProvisioningClient.CreateWithClientCertificate("0ne0", "reg-x509", cert);
+        await Assert.That(client).IsNotNull();
+    }
+
+    [Test]
+    public async Task ProvisioningClient_dispose_without_register_is_safe()
+    {
+        var client = ProvisioningClient.CreateWithSymmetricKey("0ne0", "reg-dispose", "aGVsbG8=");
+        await client.DisposeAsync();
+        await client.DisposeAsync();
+    }
+
+    [Test]
+    public async Task ProvisioningClientOptions_have_defaults()
+    {
+        var options = new ProvisioningClientOptions();
+        await Assert.That(options.GlobalEndpoint).IsEqualTo(IoTHubProtocol.GlobalProvisioningHost);
+        await Assert.That(options.Timeout).IsEqualTo(TimeSpan.FromSeconds(90));
+        await Assert.That(options.SasTokenLifetime).IsEqualTo(TimeSpan.FromHours(1));
+    }
 }

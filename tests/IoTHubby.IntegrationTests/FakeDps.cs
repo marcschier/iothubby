@@ -16,15 +16,21 @@ internal sealed class FakeDps : IAsyncDisposable
     private readonly MqttClient _client;
     private readonly string _assignedHub;
     private readonly string _deviceId;
+    private readonly bool _fail;
+    private readonly int _extraAssigningPolls;
+    private int _pollCount;
 
-    private FakeDps(MqttClient client, string assignedHub, string deviceId)
+    private FakeDps(MqttClient client, string assignedHub, string deviceId, bool fail, int extraAssigningPolls)
     {
         _client = client;
         _assignedHub = assignedHub;
         _deviceId = deviceId;
+        _fail = fail;
+        _extraAssigningPolls = extraAssigningPolls;
     }
 
-    public static async Task<FakeDps> StartAsync(int brokerPort, string assignedHub, string deviceId)
+    public static async Task<FakeDps> StartAsync(
+        int brokerPort, string assignedHub, string deviceId, bool fail = false, int extraAssigningPolls = 0)
     {
         var options = new MqttClientOptions
         {
@@ -36,7 +42,7 @@ internal sealed class FakeDps : IAsyncDisposable
             CleanStart = true,
         };
         var client = new MqttClient(options);
-        var dps = new FakeDps(client, assignedHub, deviceId);
+        var dps = new FakeDps(client, assignedHub, deviceId, fail, extraAssigningPolls);
         await client.ConnectAsync().ConfigureAwait(false);
         await client.SubscribeAsync("$dps/registrations/PUT/#", dps.OnRegisterAsync).ConfigureAwait(false);
         await client.SubscribeAsync("$dps/registrations/GET/#", dps.OnPollAsync).ConfigureAwait(false);
@@ -51,9 +57,23 @@ internal sealed class FakeDps : IAsyncDisposable
         {
             return;
         }
+        if (_fail)
+        {
+            const string failed = "{\"operationId\":\"op-1\",\"status\":\"failed\","
+                + "\"registrationState\":{\"status\":\"failed\"}}";
+            await _client.PublishAsync(
+                $"$dps/registrations/res/200/?$rid={rid}",
+                Encoding.UTF8.GetBytes(failed),
+                MqttQoS.AtMostOnce,
+                retain: false,
+                properties: null,
+                CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
         const string body = "{\"operationId\":\"op-1\",\"status\":\"assigning\"}";
+        var retry = _extraAssigningPolls > 0 ? string.Empty : "&retry-after=1";
         await _client.PublishAsync(
-            $"$dps/registrations/res/202/?$rid={rid}&retry-after=1",
+            $"$dps/registrations/res/202/?$rid={rid}{retry}",
             Encoding.UTF8.GetBytes(body),
             MqttQoS.AtMostOnce,
             retain: false,
@@ -67,6 +87,17 @@ internal sealed class FakeDps : IAsyncDisposable
         message.Dispose();
         if (rid is null)
         {
+            return;
+        }
+        if (Interlocked.Increment(ref _pollCount) <= _extraAssigningPolls)
+        {
+            await _client.PublishAsync(
+                $"$dps/registrations/res/202/?$rid={rid}",
+                Encoding.UTF8.GetBytes("{\"operationId\":\"op-1\",\"status\":\"assigning\"}"),
+                MqttQoS.AtMostOnce,
+                retain: false,
+                properties: null,
+                CancellationToken.None).ConfigureAwait(false);
             return;
         }
         var body =

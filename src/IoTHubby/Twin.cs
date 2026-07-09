@@ -1,5 +1,6 @@
 // Copyright (c) marcschier. Licensed under the MIT License.
 
+using System.Buffers;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
@@ -30,6 +31,9 @@ public sealed class TwinProperties
 
     /// <summary>The raw JSON bytes of this collection.</summary>
     public ReadOnlyMemory<byte> RawJson => _json;
+
+    /// <summary>The raw JSON bytes as a (single-segment) sequence.</summary>
+    public ReadOnlySequence<byte> RawSequence => new(_json);
 
     /// <summary>The JSON as a UTF-8 string.</summary>
     public string ToJsonString() => System.Text.Encoding.UTF8.GetString(_json);

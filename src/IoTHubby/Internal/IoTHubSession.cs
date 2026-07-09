@@ -141,6 +141,17 @@ internal sealed class IoTHubSession : IAsyncDisposable
         CancellationToken cancellationToken)
         => _client.PublishAsync(topic, payload, (MqttQoS)qos, retain: false, properties: null, cancellationToken);
 
+    /// <summary>
+    /// Publishes a message whose payload may span multiple buffer segments, without first
+    /// concatenating it (zero-copy pass-through to the MQTT client).
+    /// </summary>
+    public ValueTask<MqttPublishResult> PublishAsync(
+        string topic,
+        System.Buffers.ReadOnlySequence<byte> payload,
+        IoTHubQoS qos,
+        CancellationToken cancellationToken)
+        => _client.PublishAsync(topic, payload, (MqttQoS)qos, retain: false, properties: null, cancellationToken);
+
     /// <summary>Subscribes to <paramref name="topicFilter"/> and returns the channel-backed subscription.</summary>
     public ValueTask<MqttSubscription> SubscribeAsync(
         string topicFilter,

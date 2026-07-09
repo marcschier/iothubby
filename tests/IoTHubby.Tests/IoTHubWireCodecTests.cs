@@ -50,7 +50,7 @@ public sealed class IoTHubWireCodecTests
 
         await Assert.That(msg.MessageId).IsEqualTo("abc");
         await Assert.That(msg.Properties["color"]).IsEqualTo("red");
-        await Assert.That(Encoding.UTF8.GetString(msg.Payload.ToArray())).IsEqualTo("hi");
+        await Assert.That(Encoding.UTF8.GetString(msg.PayloadMemory.ToArray())).IsEqualTo("hi");
     }
 
     [Test]

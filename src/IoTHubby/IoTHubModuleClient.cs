@@ -1,5 +1,6 @@
 // Copyright (c) marcschier. Licensed under the MIT License.
 
+using System.Buffers;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -11,7 +12,7 @@ namespace IoTHubby;
 /// capabilities it supports edge module-to-module messaging (named outputs and inputs). Connect once
 /// and use — reconnection, SAS renewal, and re-subscription are automatic.
 /// </summary>
-public sealed class IoTHubModuleClient : IAsyncDisposable
+public sealed class IoTHubModuleClient : IAsyncDisposable, IIoTHubConnectableClient
 {
     private readonly IoTHubClientCore _core;
 
@@ -122,15 +123,23 @@ public sealed class IoTHubModuleClient : IAsyncDisposable
     public Task<Twin> GetTwinAsync(CancellationToken cancellationToken = default)
         => _core.GetTwinAsync(cancellationToken);
 
-    /// <summary>Patches reported properties from raw JSON bytes. Returns the new twin version.</summary>
+    /// <summary>Patches reported properties from contiguous JSON bytes. Returns the new twin version.</summary>
     public Task<long?> UpdateReportedPropertiesAsync(
         ReadOnlyMemory<byte> reportedJson, CancellationToken cancellationToken = default)
+        => _core.UpdateReportedPropertiesAsync(new ReadOnlySequence<byte>(reportedJson), cancellationToken);
+
+    /// <summary>
+    /// Patches reported properties from JSON that may span multiple buffer segments (zero-copy).
+    /// Returns the new twin version.
+    /// </summary>
+    public Task<long?> UpdateReportedPropertiesAsync(
+        ReadOnlySequence<byte> reportedJson, CancellationToken cancellationToken = default)
         => _core.UpdateReportedPropertiesAsync(reportedJson, cancellationToken);
 
     /// <summary>Patches reported properties from a JSON string. Returns the new twin version.</summary>
     public Task<long?> UpdateReportedPropertiesAsync(string reportedJson, CancellationToken cancellationToken = default)
         => _core.UpdateReportedPropertiesAsync(
-            System.Text.Encoding.UTF8.GetBytes(reportedJson ?? "{}"), cancellationToken);
+            new ReadOnlySequence<byte>(System.Text.Encoding.UTF8.GetBytes(reportedJson ?? "{}")), cancellationToken);
 
     /// <summary>
     /// Patches reported properties from a strongly-typed value serialized via a source-generated
@@ -139,7 +148,7 @@ public sealed class IoTHubModuleClient : IAsyncDisposable
     public Task<long?> UpdateReportedPropertiesAsync<T>(
         T value, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken = default)
         => _core.UpdateReportedPropertiesAsync(
-            JsonSerializer.SerializeToUtf8Bytes(value, typeInfo), cancellationToken);
+            new ReadOnlySequence<byte>(JsonSerializer.SerializeToUtf8Bytes(value, typeInfo)), cancellationToken);
 
     /// <summary>Streams desired-property updates pushed by the service.</summary>
     public IAsyncEnumerable<DesiredPropertyUpdate> ReceiveDesiredPropertyUpdatesAsync(

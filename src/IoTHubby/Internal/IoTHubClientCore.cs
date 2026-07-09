@@ -1,5 +1,6 @@
 // Copyright (c) marcschier. Licensed under the MIT License.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using Mqtt.Client;
 
@@ -193,7 +194,7 @@ internal sealed class IoTHubClientCore : IAsyncDisposable
                 response = handler is null
                     ? DirectMethodResponse.FromStatus(404)
                     : await handler(
-                        new DirectMethodRequest(name, payload),
+                        new DirectMethodRequest(name, new ReadOnlySequence<byte>(payload)),
                         CancellationToken.None).ConfigureAwait(false);
             }
             catch
@@ -238,7 +239,7 @@ internal sealed class IoTHubClientCore : IAsyncDisposable
     }
 
     public async Task<long?> UpdateReportedPropertiesAsync(
-        ReadOnlyMemory<byte> reportedJson,
+        ReadOnlySequence<byte> reportedJson,
         CancellationToken cancellationToken)
     {
         await EnsureTwinSubscriptionAsync(cancellationToken).ConfigureAwait(false);

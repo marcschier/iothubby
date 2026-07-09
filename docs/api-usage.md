@@ -51,7 +51,7 @@ await client.ConnectAsync();
 
 ## Sending telemetry
 
-Use `TelemetryMessage` as a mutable builder for payload bytes, MQTT QoS, system properties, and application properties. `TelemetryMessage.FromString` encodes the payload as UTF-8; the constructor accepts `ReadOnlyMemory<byte>` when you already have bytes.
+Use `TelemetryMessage` as a mutable builder for payload bytes, MQTT QoS, system properties, and application properties. `TelemetryMessage.FromString` encodes the payload as UTF-8; constructors accept `ReadOnlyMemory<byte>` for contiguous bytes and `ReadOnlySequence<byte>` when the payload already spans one or more buffers.
 
 ```csharp
 using IoTHubby;
@@ -66,6 +66,38 @@ message.Properties["sensor"] = "warehouse-7";
 message.Properties["schema"] = "telemetry-v1";
 
 await client.SendTelemetryAsync(message, cancellationToken);
+```
+
+When the payload is already segmented, pass a `ReadOnlySequence<byte>` directly. IoTHubby forwards the sequence to `Mqtt.Client` without concatenating it first for a zero-copy pass-through; use `TelemetryMessage.PayloadMemory` only when you need a contiguous view (zero-copy for a single segment, copy for multiple segments).
+
+```csharp
+using System.Buffers;
+using System.Text;
+using IoTHubby;
+
+byte[] first = Encoding.UTF8.GetBytes("{\"temperature\":");
+byte[] second = Encoding.UTF8.GetBytes("21.5}");
+
+var start = new BufferSegment(first);
+var end = start.Append(second);
+var sequence = new ReadOnlySequence<byte>(start, 0, end, end.Memory.Length);
+
+await client.SendTelemetryAsync(new TelemetryMessage(sequence), cancellationToken);
+
+sealed class BufferSegment : ReadOnlySequenceSegment<byte>
+{
+    public BufferSegment(ReadOnlyMemory<byte> memory) => Memory = memory;
+
+    public BufferSegment Append(ReadOnlyMemory<byte> memory)
+    {
+        var segment = new BufferSegment(memory)
+        {
+            RunningIndex = RunningIndex + Memory.Length
+        };
+        Next = segment;
+        return segment;
+    }
+}
 ```
 
 IoT Hub over MQTT supports only `IoTHubQoS.AtMostOnce` and `IoTHubQoS.AtLeastOnce`; there is no QoS 2 and retain is not honored. Telemetry system and application properties are encoded into the MQTT topic property bag documented in [MQTT wire mapping](mqtt-topics.md).
@@ -91,11 +123,11 @@ await foreach (var message in client.ReceiveCloudToDeviceMessagesAsync(cancellat
 }
 ```
 
-The payload is a retained managed copy, so `CloudToDeviceMessage` has nothing to dispose. `SystemProperties` contains raw system-property keys with their `$.` prefix; `Properties` contains application properties.
+The payload is a retained managed copy, so `CloudToDeviceMessage` has nothing to dispose. `CloudToDeviceMessage.Payload` is a `ReadOnlySequence<byte>`; `PayloadMemory` provides a contiguous view and `PayloadAsString` decodes it as UTF-8. `SystemProperties` contains raw system-property keys with their `$.` prefix; `Properties` contains application properties.
 
 ## Direct methods
 
-Register a direct-method handler with `SetMethodHandlerAsync`. The handler receives a `DirectMethodRequest` with `Name`, raw `Payload`, and `PayloadAsString`, and returns a `DirectMethodResponse`.
+Register a direct-method handler with `SetMethodHandlerAsync`. The handler receives a `DirectMethodRequest` with `Name`, raw `Payload` as `ReadOnlySequence<byte>`, `PayloadMemory`, and `PayloadAsString`, and returns a `DirectMethodResponse`.
 
 ```csharp
 using IoTHubby;
@@ -117,9 +149,11 @@ await client.SetMethodHandlerAsync((request, ct) =>
 
 Pass `null` to `SetMethodHandlerAsync` to stop handling methods; subsequent requests are answered with 404 by the client core.
 
+Use `DirectMethodResponse.FromSequence(status, sequence)` when a response payload already lives in a `ReadOnlySequence<byte>`; it is sent without being concatenated first.
+
 ## Device twin
 
-Use `GetTwinAsync` to read the desired and reported property collections. Each collection exposes `Version`, raw JSON bytes through `RawJson`, `ToJsonString()`, `RootElement`, and an AOT-safe `Deserialize<T>(JsonTypeInfo<T>)`.
+Use `GetTwinAsync` to read the desired and reported property collections. Each collection exposes `Version`, raw JSON bytes through `RawJson` and `RawSequence`, `ToJsonString()`, `RootElement`, and an AOT-safe `Deserialize<T>(JsonTypeInfo<T>)`.
 
 ```csharp
 using IoTHubby;
@@ -130,9 +164,10 @@ Console.WriteLine($"Desired v{twin.Desired.Version}: {twin.Desired.ToJsonString(
 Console.WriteLine($"Reported v{twin.Reported.Version}: {twin.Reported.ToJsonString()}");
 ```
 
-Patch reported properties from a JSON string, raw UTF-8 JSON bytes, or a strongly typed value serialized with a source-generated `JsonTypeInfo<T>`:
+Patch reported properties from a JSON string, raw UTF-8 JSON bytes, a `ReadOnlySequence<byte>`, or a strongly typed value serialized with a source-generated `JsonTypeInfo<T>`:
 
 ```csharp
+using System.Buffers;
 using System.Text;
 using IoTHubby;
 
@@ -142,6 +177,11 @@ long? stringVersion = await client.UpdateReportedPropertiesAsync(
 
 long? bytesVersion = await client.UpdateReportedPropertiesAsync(
     Encoding.UTF8.GetBytes("{\"uptimeSeconds\":123}"),
+    cancellationToken);
+
+var reportedSequence = new ReadOnlySequence<byte>(Encoding.UTF8.GetBytes("{\"battery\":88}"));
+long? sequenceVersion = await client.UpdateReportedPropertiesAsync(
+    reportedSequence,
     cancellationToken);
 ```
 
@@ -296,6 +336,64 @@ await using var client = IoTHubDeviceClient.CreateFromConnectionString(
 ```
 
 `AutoReconnect` controls reconnect and re-subscription after dropped connections. `SasTokenRenewalFraction` controls when generated SAS tokens are proactively renewed by reconnecting with a fresh token. `ConfigureTls` is the seam for custom TLS settings such as an edge gateway trust bundle. `LoggerFactory` passes diagnostics to the MQTT transport and client internals.
+
+### Dependency injection
+
+The DI extensions live in the `Microsoft.Extensions.DependencyInjection` namespace, so a normal `using Microsoft.Extensions.DependencyInjection;` surfaces them. They register a singleton client and automatically wire the container's `ILoggerFactory`; with `connectOnStart: true`, a hosted service connects the client during host startup and disconnects it during shutdown.
+
+```csharp
+using IoTHubby;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Logging.AddConsole();
+
+var connectionString = builder.Configuration["IOTHUB_DEVICE_CONNECTION_STRING"]
+    ?? throw new InvalidOperationException("Set IOTHUB_DEVICE_CONNECTION_STRING.");
+
+builder.Services.AddIoTHubDeviceClient(
+    connectionString,
+    options =>
+    {
+        options.ProductInfo = "contoso.device/1.0";
+        options.ModelId = "dtmi:contoso:Device;1";
+    },
+    connectOnStart: true);
+
+builder.Services.AddHostedService<TelemetryWorker>();
+
+await builder.Build().RunAsync();
+
+sealed class TelemetryWorker : BackgroundService
+{
+    private readonly IoTHubDeviceClient _client;
+    private readonly ILogger<TelemetryWorker> _logger;
+
+    public TelemetryWorker(IoTHubDeviceClient client, ILogger<TelemetryWorker> logger)
+    {
+        _client = client;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await _client.SendTelemetryAsync(
+                TelemetryMessage.FromString("{\"temperature\":21.5}"),
+                stoppingToken);
+
+            _logger.LogInformation("Telemetry sent.");
+            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+        }
+    }
+}
+```
+
+Use `AddIoTHubModuleClient(connectionString, options => { ... }, connectOnStart: true)` for a connection-string-backed `IoTHubModuleClient`. In the `IoTHubby.Edge` package, `AddIoTHubEdgeModuleClient(options => { ... }, connectOnStart: true)` registers a singleton `IoTHubModuleClient` bootstrapped from the IoT Edge environment; the async workload bootstrap completes when the singleton is first resolved.
 
 ## Connection lifecycle and events
 

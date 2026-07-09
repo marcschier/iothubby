@@ -1,5 +1,7 @@
 // Copyright (c) marcschier. Licensed under the MIT License.
 
+using System.Buffers;
+
 namespace IoTHubby;
 
 /// <summary>
@@ -17,16 +19,19 @@ public sealed class CloudToDeviceMessage
         IReadOnlyDictionary<string, string> systemProperties,
         IReadOnlyDictionary<string, string> properties)
     {
-        Payload = payload;
+        Payload = new ReadOnlySequence<byte>(payload);
         SystemProperties = systemProperties;
         Properties = properties;
     }
 
-    /// <summary>Message payload bytes (a retained copy).</summary>
-    public ReadOnlyMemory<byte> Payload { get; }
+    /// <summary>Message payload bytes (a retained copy). May span multiple segments.</summary>
+    public ReadOnlySequence<byte> Payload { get; }
+
+    /// <summary>Contiguous view of <see cref="Payload"/> (zero-copy when single-segment).</summary>
+    public ReadOnlyMemory<byte> PayloadMemory => Payload.IsSingleSegment ? Payload.First : Payload.ToArray();
 
     /// <summary>The payload decoded as a UTF-8 string.</summary>
-    public string PayloadAsString => System.Text.Encoding.UTF8.GetString(Payload.ToArray());
+    public string PayloadAsString => System.Text.Encoding.UTF8.GetString(PayloadMemory.ToArray());
 
     /// <summary>Raw system properties as they appeared in the topic (keys retain the <c>$.</c> prefix).</summary>
     public IReadOnlyDictionary<string, string> SystemProperties { get; }

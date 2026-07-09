@@ -1,5 +1,6 @@
 // Copyright (c) marcschier. Licensed under the MIT License.
 
+using System.Buffers;
 using System.Text;
 using System.Text.Json.Serialization;
 
@@ -23,11 +24,11 @@ public sealed class PublicTypesTests
         m.QoS = IoTHubQoS.AtMostOnce;
         m.Properties["k"] = "v";
 
-        await Assert.That(Encoding.UTF8.GetString(m.Payload.ToArray())).IsEqualTo("hi");
+        await Assert.That(Encoding.UTF8.GetString(m.PayloadMemory.ToArray())).IsEqualTo("hi");
         await Assert.That(m.MessageId).IsEqualTo("id");
         await Assert.That(m.QoS).IsEqualTo(IoTHubQoS.AtMostOnce);
         await Assert.That(m.Properties["k"]).IsEqualTo("v");
-        await Assert.That(new TelemetryMessage("x"u8.ToArray().AsMemory()).Payload.Length).IsEqualTo(1);
+        await Assert.That(new TelemetryMessage("x"u8.ToArray().AsMemory()).PayloadMemory.Length).IsEqualTo(1);
     }
 
     [Test]
@@ -58,16 +59,16 @@ public sealed class PublicTypesTests
     [Test]
     public async Task DirectMethod_request_and_responses()
     {
-        var request = new DirectMethodRequest("reboot", "{\"x\":1}"u8.ToArray().AsMemory());
+        var request = new DirectMethodRequest("reboot", new ReadOnlySequence<byte>("{\"x\":1}"u8.ToArray()));
         await Assert.That(request.Name).IsEqualTo("reboot");
         await Assert.That(request.PayloadAsString).IsEqualTo("{\"x\":1}");
 
         await Assert.That(DirectMethodResponse.FromStatus(204).Status).IsEqualTo(204);
-        await Assert.That(DirectMethodResponse.FromStatus(204).Payload.Length).IsEqualTo(0);
+        await Assert.That(DirectMethodResponse.FromStatus(204).PayloadMemory.Length).IsEqualTo(0);
         await Assert.That(DirectMethodResponse.FromString(200, "ok").Status).IsEqualTo(200);
         var bytes = DirectMethodResponse.FromBytes(500, "e"u8.ToArray().AsMemory());
         await Assert.That(bytes.Status).IsEqualTo(500);
-        await Assert.That(bytes.Payload.Length).IsEqualTo(1);
+        await Assert.That(bytes.PayloadMemory.Length).IsEqualTo(1);
     }
 
     [Test]

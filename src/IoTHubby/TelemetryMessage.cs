@@ -1,5 +1,7 @@
 // Copyright (c) marcschier. Licensed under the MIT License.
 
+using System.Buffers;
+
 namespace IoTHubby;
 
 /// <summary>
@@ -17,15 +19,31 @@ public sealed class TelemetryMessage
     {
     }
 
-    /// <summary>Creates a message with the given payload bytes.</summary>
-    public TelemetryMessage(ReadOnlyMemory<byte> payload) => Payload = payload;
+    /// <summary>Creates a message with the given contiguous payload bytes.</summary>
+    public TelemetryMessage(ReadOnlyMemory<byte> payload) => Payload = new ReadOnlySequence<byte>(payload);
+
+    /// <summary>Creates a message whose payload may span multiple buffer segments (zero-copy).</summary>
+    public TelemetryMessage(ReadOnlySequence<byte> payload) => Payload = payload;
 
     /// <summary>Creates a message from a UTF-8 string payload.</summary>
     public static TelemetryMessage FromString(string text)
-        => new(System.Text.Encoding.UTF8.GetBytes(text ?? string.Empty));
+        => new(System.Text.Encoding.UTF8.GetBytes(text ?? string.Empty).AsMemory());
 
-    /// <summary>Opaque payload bytes.</summary>
-    public ReadOnlyMemory<byte> Payload { get; set; }
+    /// <summary>
+    /// Opaque payload bytes. May span multiple buffer segments; multi-segment payloads are sent
+    /// without first being concatenated. Use <see cref="PayloadMemory"/> for a contiguous view.
+    /// </summary>
+    public ReadOnlySequence<byte> Payload { get; set; }
+
+    /// <summary>
+    /// Contiguous view of <see cref="Payload"/> (zero-copy when single-segment, which is the common
+    /// case; otherwise copies). Also settable to assign the payload from a contiguous buffer.
+    /// </summary>
+    public ReadOnlyMemory<byte> PayloadMemory
+    {
+        get => Payload.IsSingleSegment ? Payload.First : Payload.ToArray();
+        set => Payload = new ReadOnlySequence<byte>(value);
+    }
 
     /// <summary>Delivery guarantee. Defaults to <see cref="IoTHubQoS.AtLeastOnce"/>.</summary>
     public IoTHubQoS QoS { get; set; } = IoTHubQoS.AtLeastOnce;

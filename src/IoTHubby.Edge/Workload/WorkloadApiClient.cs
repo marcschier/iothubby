@@ -338,6 +338,7 @@ public sealed class WorkloadApiClient : IDisposable
         }
     }
 
+    [ExcludeFromCodeCoverage(Justification = "Parses the UDS workload URI; reached only from the real transport.")]
     private static string GetUnixSocketPath(Uri uri)
     {
         if (!uri.IsAbsoluteUri)
@@ -361,6 +362,8 @@ public sealed class WorkloadApiClient : IDisposable
         return path;
     }
 
+    [ExcludeFromCodeCoverage(Justification =
+        "Parses the named-pipe workload URI; reached only from the real transport.")]
     private static (string ServerName, string PipeName) GetNamedPipeParts(Uri uri)
     {
         var serverName = string.IsNullOrEmpty(uri.Host) ? "." : uri.Host;

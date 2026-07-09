@@ -19,6 +19,10 @@
     <!-- Twin / direct-method JSON payloads via source-generated (AOT/trim-safe) serialization. -->
     <PackageVersion Include="System.Text.Json" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <!-- Dependency-injection integration (AddIoTHubDeviceClient / hosted connect). -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
   </ItemGroup>
 
   <!-- net8.0 polyfill: System.IO.Pipelines entered the base reference pack in net9.0. Pinned to 9.0.0
@@ -44,6 +48,9 @@
     <PackageVersion Include="Mqtt.Client.Testing" Version="1.1.0" />
     <!-- Coverage-guided fuzzing of the wire parsers. -->
     <PackageVersion Include="SharpFuzz" Version="2.1.1" />
+    <!-- Concrete DI container + host for exercising the DI extensions in tests. -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

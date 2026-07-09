@@ -184,7 +184,7 @@ public sealed class DeviceClientIntegrationTests
         {
             await foreach (var msg in device.ReceiveCloudToDeviceMessagesAsync(cts.Token))
             {
-                if (Encoding.UTF8.GetString(msg.Payload.ToArray()) == "after-reconnect")
+                if (Encoding.UTF8.GetString(msg.PayloadMemory.ToArray()) == "after-reconnect")
                 {
                     return true;
                 }

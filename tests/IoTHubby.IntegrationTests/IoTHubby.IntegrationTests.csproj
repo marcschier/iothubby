@@ -13,6 +13,8 @@
     <PackageReference Include="TUnit" />
     <PackageReference Include="Mqtt.Client" />
     <PackageReference Include="Mqtt.Client.Testing" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(AotTest)' != 'true'">

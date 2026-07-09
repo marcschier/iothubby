@@ -32,4 +32,28 @@ public sealed class ProvisioningIntegrationTests
         await Assert.That(result.DeviceId).IsEqualTo("reg-device");
         await Assert.That(result.AssignedHubOrThrow()).IsEqualTo("assigned-hub.azure-devices.net");
     }
+
+    [Test]
+    public async Task Register_polls_multiple_times_until_assigned()
+    {
+        await using var broker = await MqttTestBroker.StartAsync();
+        await using var dps = await FakeDps.StartAsync(
+            broker.Port, "hub2.azure-devices.net", "reg-poll", extraAssigningPolls: 2);
+
+        await using var client = ProvisioningClient.CreateWithSymmetricKey(
+            "0ne00000000",
+            "reg-poll",
+            "aGVsbG8=",
+            o =>
+            {
+                o.EndpointHostOverride = "127.0.0.1";
+                o.EndpointPortOverride = broker.Port;
+                o.DisableTls = true;
+                o.Timeout = TimeSpan.FromSeconds(20);
+            });
+
+        var result = await client.RegisterAsync();
+        await Assert.That(result.Status).IsEqualTo("assigned");
+        await Assert.That(result.AssignedHub).IsEqualTo("hub2.azure-devices.net");
+    }
 }

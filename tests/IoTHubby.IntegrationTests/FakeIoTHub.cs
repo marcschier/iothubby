@@ -27,6 +27,9 @@ internal sealed class FakeIoTHub : IAsyncDisposable
 
     private FakeIoTHub(MqttClient client) => _client = client;
 
+    /// <summary>Status code returned for twin GET (default 200); set to an error to exercise failures.</summary>
+    public int TwinGetStatus { get; set; } = 200;
+
     /// <summary>The most recent reported-properties body received from the device.</summary>
     public string? LastReportedPatch { get; private set; }
 
@@ -140,7 +143,7 @@ internal sealed class FakeIoTHub : IAsyncDisposable
             return;
         }
         await _client.PublishAsync(
-            $"$iothub/twin/res/200/?$rid={rid}",
+            $"$iothub/twin/res/{TwinGetStatus.ToString(System.Globalization.CultureInfo.InvariantCulture)}/?$rid={rid}",
             Encoding.UTF8.GetBytes(_twinJson),
             MqttQoS.AtMostOnce,
             retain: false,

@@ -44,7 +44,7 @@ public sealed class WorkloadApiClientCoverageTests
     }
 
     [Test]
-    public async Task SignAsync_and_GetTrustBundleAsync_throw_for_server_errors()
+    public async Task Workload_operations_throw_for_server_errors()
     {
         using var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
         using var client = new WorkloadApiClient(new Uri("http://localhost:15580"), "2020-07-07", handler);
@@ -53,6 +53,18 @@ public sealed class WorkloadApiClientCoverageTests
             .Throws<HttpRequestException>();
         await Assert.That(async () => await client.SignAsync("module1", "gen1", [1, 2, 3], CancellationToken.None))
             .Throws<HttpRequestException>();
+        await Assert.That(async () => await client.EncryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [1, 2, 3],
+            CancellationToken.None)).Throws<HttpRequestException>();
+        await Assert.That(async () => await client.DecryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [1, 2, 3],
+            CancellationToken.None)).Throws<HttpRequestException>();
     }
 
     [Test]
@@ -66,6 +78,78 @@ public sealed class WorkloadApiClientCoverageTests
 
         await Assert.That(async () => await client.SignAsync("module1", "gen1", [1, 2, 3], CancellationToken.None))
             .Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task EncryptAsync_and_DecryptAsync_return_empty_data_for_missing_response_properties()
+    {
+        using var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("{}"),
+        });
+        using var client = new WorkloadApiClient(new Uri("http://localhost:15580"), "2020-07-07", handler);
+
+        var ciphertext = await client.EncryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [],
+            CancellationToken.None);
+        var plaintext = await client.DecryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [],
+            CancellationToken.None);
+
+        await Assert.That(ciphertext).IsEmpty();
+        await Assert.That(plaintext).IsEmpty();
+    }
+
+    [Test]
+    public async Task EncryptAsync_and_DecryptAsync_throw_for_empty_response()
+    {
+        using var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("null"),
+        });
+        using var client = new WorkloadApiClient(new Uri("http://localhost:15580"), "2020-07-07", handler);
+
+        await Assert.That(async () => await client.EncryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [],
+            CancellationToken.None)).Throws<InvalidOperationException>();
+        await Assert.That(async () => await client.DecryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [],
+            CancellationToken.None)).Throws<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task EncryptAsync_and_DecryptAsync_honor_cancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        using var handler = new FakeHandler((_, cancellationToken) =>
+            Task.FromCanceled<HttpResponseMessage>(cancellationToken));
+        using var client = new WorkloadApiClient(new Uri("http://localhost:15580"), "2020-07-07", handler);
+
+        await Assert.That(async () => await client.EncryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [],
+            cts.Token)).Throws<OperationCanceledException>();
+        await Assert.That(async () => await client.DecryptAsync(
+            "module1",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [],
+            cts.Token)).Throws<OperationCanceledException>();
     }
 
     [Test]

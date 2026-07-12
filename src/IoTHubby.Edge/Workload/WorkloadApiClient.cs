@@ -125,6 +125,83 @@ public sealed class WorkloadApiClient : IDisposable
     }
 
     /// <summary>
+    /// Encrypts plaintext with the module key managed by the Edge Workload API.
+    /// </summary>
+    /// <param name="moduleId">The IoT Edge module identifier.</param>
+    /// <param name="generationId">The module identity generation identifier.</param>
+    /// <param name="initializationVector">The initialization vector expected by the workload API.</param>
+    /// <param name="plaintext">The plaintext bytes to encrypt.</param>
+    /// <param name="ct">A cancellation token.</param>
+    /// <returns>The raw ciphertext returned by the workload API.</returns>
+    /// <remarks>
+    /// This preserves the legacy Edge wire contract: plaintext is base64 encoded, then its UTF-8
+    /// representation is serialized as the request's base64-encoded <c>plaintext</c> property.
+    /// </remarks>
+    public async Task<byte[]> EncryptAsync(
+        string moduleId,
+        string generationId,
+        string initializationVector,
+        byte[] plaintext,
+        CancellationToken ct)
+    {
+        ValidateModuleRequest(moduleId, generationId);
+        ThrowIfNull(initializationVector, nameof(initializationVector));
+        ThrowIfNull(plaintext, nameof(plaintext));
+
+        var requestBody = new WorkloadEncryptRequest(
+            Encoding.UTF8.GetBytes(Convert.ToBase64String(plaintext)),
+            Encoding.UTF8.GetBytes(initializationVector));
+        var response = await PostModuleAsync(
+            moduleId,
+            generationId,
+            "encrypt",
+            requestBody,
+            WorkloadJsonContext.Default.WorkloadEncryptRequest,
+            WorkloadJsonContext.Default.WorkloadEncryptResponse,
+            ct).ConfigureAwait(false);
+
+        return response.Ciphertext ?? [];
+    }
+
+    /// <summary>
+    /// Decrypts ciphertext with the module key managed by the Edge Workload API.
+    /// </summary>
+    /// <param name="moduleId">The IoT Edge module identifier.</param>
+    /// <param name="generationId">The module identity generation identifier.</param>
+    /// <param name="initializationVector">The initialization vector expected by the workload API.</param>
+    /// <param name="ciphertext">The raw ciphertext bytes to decrypt.</param>
+    /// <param name="ct">A cancellation token.</param>
+    /// <returns>The raw plaintext returned by the workload API.</returns>
+    /// <remarks>
+    /// This reverses the legacy Edge wire contract, decoding the returned UTF-8 base64 plaintext.
+    /// </remarks>
+    public async Task<byte[]> DecryptAsync(
+        string moduleId,
+        string generationId,
+        string initializationVector,
+        byte[] ciphertext,
+        CancellationToken ct)
+    {
+        ValidateModuleRequest(moduleId, generationId);
+        ThrowIfNull(initializationVector, nameof(initializationVector));
+        ThrowIfNull(ciphertext, nameof(ciphertext));
+
+        var requestBody = new WorkloadDecryptRequest(
+            ciphertext,
+            Encoding.UTF8.GetBytes(initializationVector));
+        var response = await PostModuleAsync(
+            moduleId,
+            generationId,
+            "decrypt",
+            requestBody,
+            WorkloadJsonContext.Default.WorkloadDecryptRequest,
+            WorkloadJsonContext.Default.WorkloadDecryptResponse,
+            ct).ConfigureAwait(false);
+
+        return Convert.FromBase64String(Encoding.UTF8.GetString(response.Plaintext ?? []));
+    }
+
+    /// <summary>
     /// Gets the IoT Edge trust bundle PEM from the workload API.
     /// </summary>
     /// <param name="ct">A cancellation token.</param>
@@ -176,6 +253,43 @@ public sealed class WorkloadApiClient : IDisposable
 
     private Uri CreateRequestUri(string relativePath)
         => new(_requestBaseUri, $"{relativePath}?api-version={Uri.EscapeDataString(_apiVersion)}");
+
+    private async Task<TResponse> PostModuleAsync<TRequest, TResponse>(
+        string moduleId,
+        string generationId,
+        string operation,
+        TRequest requestBody,
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<TRequest> requestInfo,
+        System.Text.Json.Serialization.Metadata.JsonTypeInfo<TResponse> responseInfo,
+        CancellationToken ct)
+    {
+        var requestPath =
+            $"modules/{Uri.EscapeDataString(moduleId)}/genid/{Uri.EscapeDataString(generationId)}/{operation}";
+        var requestJson = JsonSerializer.Serialize(requestBody, requestInfo);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, CreateRequestUri(requestPath))
+        {
+            Content = new StringContent(requestJson, Encoding.UTF8, "application/json"),
+        };
+        using var response = await _client.SendAsync(request, ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        var stream = await ReadAsStreamAsync(response.Content, ct).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync(stream, responseInfo, ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"The workload {operation} response was empty.");
+    }
+
+    private static void ValidateModuleRequest(string moduleId, string generationId)
+    {
+        if (string.IsNullOrEmpty(moduleId))
+        {
+            throw new ArgumentException("The module ID is required.", nameof(moduleId));
+        }
+        if (string.IsNullOrEmpty(generationId))
+        {
+            throw new ArgumentException("The generation ID is required.", nameof(generationId));
+        }
+    }
 
     private static Uri CreateRequestBaseUri(Uri workloadUri)
     {

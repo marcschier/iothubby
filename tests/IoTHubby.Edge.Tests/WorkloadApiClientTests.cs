@@ -1,5 +1,6 @@
 // Copyright (c) marcschier. Licensed under the MIT License.
 
+using System.Text;
 using System.Text.Json;
 using IoTHubby.Edge.Workload;
 
@@ -40,6 +41,68 @@ public sealed class WorkloadApiClientTests
         var actual = await client.SignAsync("module one", "gen-1", data, CancellationToken.None);
 
         await Assert.That(Convert.ToBase64String(actual)).IsEqualTo(Convert.ToBase64String(digest));
+    }
+
+    [Test]
+    public async Task EncryptAsync_preserves_legacy_iv_and_double_base64_wire_shape()
+    {
+        using var handler = new FakeHandler(async (request, cancellationToken) =>
+        {
+            await AssertRequestAsync(
+                request,
+                HttpMethod.Post,
+                "/modules/publisher/genid/gen1/encrypt",
+                "?api-version=2019-01-30");
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            await Assert.That(body).IsEqualTo(
+                """{"plaintext":"ZFhObGNnPT0=","initializationVector":"YWxLR0pkZnNnaWRmYXNkTw=="}""");
+
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"ciphertext":"AQID"}"""),
+            };
+        });
+        using var client = new WorkloadApiClient(new Uri("http://edge/"), "2019-01-30", handler);
+
+        var ciphertext = await client.EncryptAsync(
+            "publisher",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            Encoding.UTF8.GetBytes("user"),
+            CancellationToken.None);
+
+        await Assert.That(Convert.ToBase64String(ciphertext)).IsEqualTo("AQID");
+    }
+
+    [Test]
+    public async Task DecryptAsync_preserves_legacy_iv_and_base64_wire_shape()
+    {
+        using var handler = new FakeHandler(async (request, cancellationToken) =>
+        {
+            await AssertRequestAsync(
+                request,
+                HttpMethod.Post,
+                "/modules/publisher/genid/gen1/decrypt",
+                "?api-version=2019-01-30");
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            await Assert.That(body).IsEqualTo(
+                """{"ciphertext":"AQID","initializationVector":"YWxLR0pkZnNnaWRmYXNkTw=="}""");
+
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"plaintext":"ZFhObGNnPT0="}"""),
+            };
+        });
+        using var client = new WorkloadApiClient(new Uri("http://edge/"), "2019-01-30", handler);
+
+        var plaintext = await client.DecryptAsync(
+            "publisher",
+            "gen1",
+            "alKGJdfsgidfasdO",
+            [1, 2, 3],
+            CancellationToken.None);
+
+        await Assert.That(Encoding.UTF8.GetString(plaintext)).IsEqualTo("user");
     }
 
     [Test]

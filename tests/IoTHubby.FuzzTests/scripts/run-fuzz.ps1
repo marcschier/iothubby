@@ -27,7 +27,7 @@ $SharpFuzz = Get-Command sharpfuzz -ErrorAction SilentlyContinue
 if ($null -eq $SharpFuzz)
 {
     Write-Host '==> Installing SharpFuzz.CommandLine global tool...'
-    dotnet tool install --global SharpFuzz.CommandLine | Out-Null
+    dotnet tool install --global SharpFuzz.CommandLine --version 2.3.0 | Out-Null
     $env:PATH = "$env:PATH;$env:USERPROFILE\.dotnet\tools"
 }
 
@@ -38,7 +38,7 @@ $LibFuzzer = Join-Path $ToolsDir 'libfuzzer-dotnet.exe'
 if (-not (Test-Path $LibFuzzer))
 {
     Write-Host '==> Downloading libfuzzer-dotnet driver (pinned)...'
-    $Url = 'https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2024.08.10.0821/libfuzzer-dotnet-windows.exe'
+    $Url = 'https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2025.05.02.0904/libfuzzer-dotnet-windows.exe'
     Invoke-WebRequest -Uri $Url -OutFile $LibFuzzer
 }
 

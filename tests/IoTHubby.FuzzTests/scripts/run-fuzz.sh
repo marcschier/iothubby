@@ -31,7 +31,7 @@ TARGET_DLL="$OUT_DIR/IoTHubby.dll"
 
 if ! command -v sharpfuzz >/dev/null 2>&1; then
   echo "==> Installing SharpFuzz.CommandLine global tool..."
-  dotnet tool install --global SharpFuzz.CommandLine >/dev/null
+  dotnet tool install --global SharpFuzz.CommandLine --version 2.3.0 >/dev/null
   export PATH="$PATH:$HOME/.dotnet/tools"
 fi
 
@@ -42,7 +42,7 @@ sharpfuzz "$TARGET_DLL" >/dev/null
 LIBFUZZER="$TOOLS_DIR/libfuzzer-dotnet"
 if [ ! -x "$LIBFUZZER" ]; then
   echo "==> Downloading libfuzzer-dotnet driver (pinned)..."
-  URL="https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2024.08.10.0821/libfuzzer-dotnet-ubuntu"
+  URL="https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2025.05.02.0904/libfuzzer-dotnet-ubuntu"
   curl -fsSL "$URL" -o "$LIBFUZZER"
   chmod +x "$LIBFUZZER"
 fi

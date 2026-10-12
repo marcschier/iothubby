@@ -52,6 +52,7 @@ Dependency and tooling maintenance release: Mqtt.Client and Mqtt.Client.Testing 
 .NET runtime packages 10.0.12, and SDK 10.0.401. Updates analyzers, TUnit, coverage,
 fuzzing tools, and GitHub Actions without changing the public API or target frameworks.
 Release promotion is scoped to `IoTHubby` and `IoTHubby.Edge`.
+Malformed twin UTF-8 and nonnumeric twin versions now consistently raise `JsonException`.
 
 ## License
 

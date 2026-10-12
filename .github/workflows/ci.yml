@@ -24,19 +24,18 @@ jobs:
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: |
             8.0.x
             9.0.x
             10.0.x
 
-      # Mqtt.Client.Testing (the in-process broker used by the integration tests) is served from
-      # this repo owner's GitHub Packages feed until it ships to nuget.org.
+      # Mqtt.Client and Mqtt.Client.Testing are both published to nuget.org.
       - name: Restore
         run: dotnet restore IoTHubby.slnx
 
@@ -69,11 +68,11 @@ jobs:
           - os: macos-latest
             rid: osx-arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: |
             8.0.x
@@ -100,11 +99,11 @@ jobs:
     name: coverage gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: |
             8.0.x
@@ -126,7 +125,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dotnet tool install --global dotnet-reportgenerator-globaltool
+          dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.5.11
           export PATH="$PATH:$HOME/.dotnet/tools"
           reports=$(find TestResults -name '*.cobertura.xml' | paste -sd ';' -)
           reportgenerator "-reports:$reports" -targetdir:coverage-merged -reporttypes:Cobertura
@@ -147,11 +146,11 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0   # Nerdbank.GitVersioning needs full history + tags
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: |
             8.0.x

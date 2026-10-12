@@ -103,20 +103,35 @@ internal static class IoTHubWireCodec
     /// </summary>
     public static Twin ParseTwin(byte[] json)
     {
-        using var document = JsonDocument.Parse(json);
-        var root = document.RootElement;
-        return new Twin(ExtractCollection(root, "desired"), ExtractCollection(root, "reported"));
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            return new Twin(ExtractCollection(root, "desired"), ExtractCollection(root, "reported"));
+        }
+        catch (InvalidOperationException ex) when (ex.InnerException is DecoderFallbackException)
+        {
+            // JsonDocument defers UTF-8 decoding until a value is extracted.
+            throw new JsonException("The twin document contains invalid UTF-8.", ex);
+        }
     }
 
     private static TwinProperties ExtractCollection(JsonElement root, string name)
     {
         if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty(name, out var element))
         {
-            long? version = element.ValueKind == JsonValueKind.Object
-                && element.TryGetProperty("$version", out var v)
-                && v.TryGetInt64(out var version64)
-                ? version64
-                : null;
+            long? version = null;
+            if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty("$version", out var v))
+            {
+                if (v.ValueKind != JsonValueKind.Number)
+                {
+                    throw new JsonException("The twin property version must be a JSON number.");
+                }
+                if (v.TryGetInt64(out var version64))
+                {
+                    version = version64;
+                }
+            }
             return new TwinProperties(Encoding.UTF8.GetBytes(element.GetRawText()), version);
         }
         return new TwinProperties(Encoding.UTF8.GetBytes("{}"), null);

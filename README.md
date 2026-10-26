@@ -46,11 +46,11 @@ IoTHubby follows the documented Azure IoT Hub MQTT conventions. Note the MQTT wi
 
 Early development (0.10.x). API is approaching stable but may still change before 1.0.
 
-### 0.10.2
+### 0.10.3
 
-Dependency and tooling maintenance release: Mqtt.Client and Mqtt.Client.Testing 1.1.5,
-.NET runtime packages 10.0.12, and SDK 10.0.401. Updates analyzers, TUnit, coverage,
-fuzzing tools, and GitHub Actions without changing the public API or target frameworks.
+Dependency and tooling maintenance release: Mqtt.Client and Mqtt.Client.Testing 1.1.6,
+.NET runtime packages 10.0.14, and SDK 10.0.403 without changing the public API or target
+frameworks.
 Release promotion is scoped to `IoTHubby` and `IoTHubby.Edge`.
 Malformed twin UTF-8 and nonnumeric twin versions now consistently raise `JsonException`.
 

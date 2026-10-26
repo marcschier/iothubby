@@ -15,27 +15,27 @@
   <!-- Core runtime dependencies -->
   <ItemGroup>
     <!-- Our own MQTT 3.1.1 / 5 client; the only transport the SDK speaks. -->
-    <PackageVersion Include="Mqtt.Client" Version="1.1.5" />
+    <PackageVersion Include="Mqtt.Client" Version="1.1.6" />
     <!-- Twin / direct-method JSON payloads via source-generated (AOT/trim-safe) serialization. -->
-    <PackageVersion Include="System.Text.Json" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
     <!-- Dependency-injection integration (AddIoTHubDeviceClient / hosted connect). -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" />
   </ItemGroup>
 
   <!-- System.IO.Pipelines entered the base reference pack in net9.0.
        Keep older targets aligned with Mqtt.Client's runtime dependency. -->
   <ItemGroup>
-    <PackageVersion Include="System.IO.Pipelines" Version="10.0.12" />
+    <PackageVersion Include="System.IO.Pipelines" Version="10.0.14" />
   </ItemGroup>
 
   <!-- netstandard 2.0/2.1 polyfills (referenced only for those TFMs; see Directory.Build.props). -->
   <ItemGroup>
     <PackageVersion Include="PolySharp" Version="1.16.0" />
-    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.12" />
-    <PackageVersion Include="System.Threading.Channels" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.14" />
+    <PackageVersion Include="System.Threading.Channels" Version="10.0.14" />
     <PackageVersion Include="System.Memory" Version="4.6.3" />
     <PackageVersion Include="System.Threading.Tasks.Extensions" Version="4.6.3" />
   </ItemGroup>
@@ -45,12 +45,12 @@
     <PackageVersion Include="TUnit" Version="1.74.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <!-- In-process MQTT test broker used by the integration tests. -->
-    <PackageVersion Include="Mqtt.Client.Testing" Version="1.1.5" />
+    <PackageVersion Include="Mqtt.Client.Testing" Version="1.1.6" />
     <!-- Coverage-guided fuzzing of the wire parsers. -->
     <PackageVersion Include="SharpFuzz" Version="2.3.0" />
     <!-- Concrete DI container + host for exercising the DI extensions in tests. -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
   </ItemGroup>
 
 </Project>

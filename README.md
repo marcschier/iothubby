@@ -57,6 +57,13 @@ Dependency and tooling maintenance release: Mqtt.Client and Mqtt.Client.Testing 
 API or target frameworks.
 Release promotion is scoped to `IoTHubby` and `IoTHubby.Edge`.
 
+### 0.10.4
+
+Updates Mqtt.Client and Mqtt.Client.Testing to 1.1.7, .NET runtime packages to 10.0.15,
+SDK to 10.0.404, TUnit to 1.85.7, and PolySharp to 1.17.1. Target frameworks are unchanged.
+An upstream MQTT soak reported intermittent receive stalls with an in-process MQTTnet broker;
+the cause remains unproven, although a later one-hour soak on the same revision passed.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
